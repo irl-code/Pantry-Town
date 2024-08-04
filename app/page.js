@@ -391,21 +391,24 @@ import {
   Snackbar,
 } from "@mui/material";
 import { Add, Remove, Search, Close } from "@mui/icons-material";
-import { firestore, auth } from "@/firebase.js";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  deleteDoc,
-  getDoc,
-} from "firebase/firestore";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, doc, getDocs, query, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+
+// Your Firebase configuration
+const firebaseConfig = {
+  apiKey: "your-api-key",
+  authDomain: "your-auth-domain",
+  projectId: "your-project-id",
+  storageBucket: "your-storage-bucket",
+  messagingSenderId: "your-messaging-sender-id",
+  appId: "your-app-id"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
+const auth = getAuth(app);
 
 const theme = createTheme({
   palette: {
@@ -484,9 +487,10 @@ export default function Home() {
   const [authPassword, setAuthPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
         updateInventory();
@@ -510,6 +514,7 @@ export default function Home() {
   };
 
   const addItem = async (item) => {
+    if (!item.trim()) return; // Prevent adding empty items
     const docRef = doc(collection(firestore, "inventory"), item);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -555,6 +560,7 @@ export default function Home() {
   const handleAuthModalClose = () => setAuthModalOpen(false);
 
   const handleAuth = async () => {
+    setError('');
     try {
       if (isRegistering) {
         await createUserWithEmailAndPassword(auth, authEmail, authPassword);
@@ -565,6 +571,7 @@ export default function Home() {
       setAuthEmail("");
       setAuthPassword("");
     } catch (error) {
+      setError(error.message);
       setSnackbarMessage(error.message);
       setSnackbarOpen(true);
     }
@@ -581,210 +588,94 @@ export default function Home() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Box
-        width="100vw"
-        minHeight="100vh"
-        display="flex"
-        flexDirection="column"
-        sx={{
-          background: "linear-gradient(to right, black, #4a00e0)",
-        }}
-      >
-        <AppBar position="static" sx={{ mb: 4, bgcolor: "black" }}>
-          <Toolbar>
-            <Box
-              sx={{
-                background: "linear-gradient(to right, #8e2de2, #4a00e0)",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "30%",
-                mx: "auto",
-              }}
-            >
-              <Typography variant="h6" sx={{ color: "white" }}>
-                Inventory Items
-              </Typography>
-            </Box>
-            {user ? (
-              <Button color="inherit" onClick={handleLogout}>
-                Logout
-              </Button>
-            ) : (
-              <Button color="inherit" onClick={handleAuthModalOpen}>
-                Login/Register
-              </Button>
-            )}
-          </Toolbar>
-        </AppBar>
-        <Container maxWidth="md">
+    <Box
+      width="100vw"
+      minHeight="100vh"
+      display="flex"
+      flexDirection="column"
+      sx={{
+        background: "linear-gradient(to right, black, #4a00e0)",
+      }}
+    >
+      <AppBar position="static" sx={{ mb: 4, bgcolor: "black" }}>
+        <Toolbar>
           <Box
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            gap={2}
-            sx={{ bgcolor: "black", padding: 2, borderRadius: 4 }}
+            sx={{
+              background: "linear-gradient(to right, #8e2de2, #4a00e0)",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30%",
+              mx: "auto",
+            }}
           >
-            <Modal
-              open={open}
-              onClose={handleClose}
-              closeAfterTransition
-              aria-labelledby="modal-modal-title"
-              aria-describedby="modal-modal-description"
-            >
-              <Fade in={open}>
-                <Box sx={modalStyle}>
-                  <Typography
-                    id="modal-modal-title"
-                    variant="h6"
-                    component="h2"
-                  >
-                    Add Item
-                  </Typography>
-                  <Stack width="100%" direction="row" spacing={2}>
-                    <TextField
-                      id="outlined-basic"
-                      label="Item"
-                      variant="outlined"
-                      fullWidth
-                      value={itemName}
-                      onChange={(e) => setItemName(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                    />
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => {
-                        addItem(itemName);
-                        setItemName("");
-                        handleClose();
-                      }}
-                      sx={{
-                        borderRadius: "50px",
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </Stack>
-                </Box>
-              </Fade>
-            </Modal>
-            <TextField
-              id="search-bar"
-              label="Search"
-              variant="outlined"
-              fullWidth
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ marginBottom: 2, maxWidth: "600px" }}
-              InputProps={{
-                endAdornment: (
-                  <IconButton>
-                    <Search />
-                  </IconButton>
-                ),
-              }}
-            />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleOpen}
-              sx={{ marginBottom: 2, borderRadius: "50px" }}
-            >
-              Add New Item
+            <Typography variant="h6" sx={{ color: "white" }}>
+              Inventory Items
+            </Typography>
+          </Box>
+          {user ? (
+            <Button color="inherit" onClick={handleLogout}>
+              Logout
             </Button>
-            <Paper
-              elevation={3}
-              sx={{
-                width: "100%",
-                borderRadius: 4,
-                padding: 2,
-                bgcolor: "black",
-                marginBottom: 2,
-              }}
-            >
-              <Box
-                width="100%"
-                                bgcolor="linear-gradient(to right, #8e2de2, #4a00e0)"
-                                padding={2}
-                                borderRadius="8px 8px 0 0"
-                              >
-                                <Typography variant="h4" color="#fff" textAlign="center">
-                                  Inventory Items
-                                </Typography>
-                              </Box>
-                              <Stack width="100%" spacing={2} padding={2}>
-                                {filteredInventory.length > 0 ? (
-                                  filteredInventory.map(({ name, quantity }) => (
-                                    <Card
-                                      key={name}
-                                      sx={{
-                                        background: "linear-gradient(to right, black, #4a00e0)", // Set the card background to the gradient
-                                        transition: "background-color 0.3s ease, box-shadow 0.3s ease",
-                                      }}
-                                    >
-                                      <CardContent>
-                                        <Typography variant="h6" color="#fff">
-                                          {name.charAt(0).toUpperCase() + name.slice(1)}
-                                        </Typography>
-                                        <Typography variant="body1" color="#fff">
-                                          Quantity: {quantity}
-                                        </Typography>
-                                      </CardContent>
-                                      <CardActions>
-                                        <Button
-                                          variant="contained"
-                                          color="secondary"
-                                          startIcon={<Remove />}
-                                          onClick={() => removeItem(name)}
-                                          sx={{
-                                            borderRadius: "20px",
-                                          }}
-                                        >
-                                          Remove
-                                        </Button>
-                                        <Button
-                                          variant="contained"
-                                          color="primary"
-                                          startIcon={<Add />}
-                                          onClick={() => addItem(name)}
-                                          sx={{
-                                            borderRadius: "20px",
-                                          }}
-                                        >
-                                          Add
-                                        </Button>
-                                        </CardActions>
-                                    </Card>
-                               ))
-                                ) : (
-                                  <Typography variant="h6" color="textSecondary" textAlign="center">
-                                    No items found
-                                  </Typography>
-                                )}
-                              </Stack>
-                            </Paper>
-                          </Box>
-                        </Container>
-                        <Snackbar
-                          open={snackbarOpen}
-                          autoHideDuration={6000}
-                          onClose={handleSnackbarClose}
-                          message={snackbarMessage}
-                          action={
-                                        <>
-                                          <Button color="secondary" size="small" onClick={handleSnackbarClose}>
-                                            Close
-                                          </Button>
-                                          <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
-                                            <Close fontSize="small" />
-                                          </IconButton>
-                                        </>
-                                      }
-                                    />
-                                  </Box>
-                                </ThemeProvider>
-                              )
-                            }
+          ) : (
+            <Button color="inherit" onClick={handleAuthModalOpen}>
+              Login/Register
+            </Button>
+          )}
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="md">
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          gap={2}
+          sx={{ bgcolor: "black", padding: 2, borderRadius: 4 }}
+        >
+          <Modal
+            open={isAuthModalOpen}
+            onClose={handleAuthModalClose}
+            closeAfterTransition
+            aria-labelledby="auth-modal-title"
+            aria-describedby="auth-modal-description"
+          >
+            <Fade in={isAuthModalOpen}>
+              <Box sx={modalStyle}>
+                <Typography id="auth-modal-title" variant="h6" component="h2">
+                  {isRegistering ? 'Register' : 'Login'}
+                </Typography>
+                {error && <Typography color="error">{error}</Typography>}
+                <TextField
+                  label="Email"
+                  variant="outlined"
+                  fullWidth
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  variant="outlined"
+                  fullWidth
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+                <Button variant="contained" color="primary" fullWidth onClick={handleAuth} sx={{ mb: 2 }}>
+                  {isRegistering ? 'Register' : 'Login'}
+                </Button>
+                <Button variant="text" fullWidth onClick={() => setIsRegistering(!isRegistering)}>
+                  {isRegistering ? 'Already have an account? Login' : "Don't have an account? Register"}
+                </Button>
+              </Box>
+            </Fade>
+          </Modal>
+        </Box>
+      </Container>
+    </Box>
+  </ThemeProvider>
+);
+};
